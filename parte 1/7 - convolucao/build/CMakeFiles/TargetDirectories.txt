@@ -1,0 +1,3 @@
+/home/jonhson/Documentos/UFRN/processamento-digital-imagens/parte 1/7 - convolucao/build/CMakeFiles/convolucao.dir
+/home/jonhson/Documentos/UFRN/processamento-digital-imagens/parte 1/7 - convolucao/build/CMakeFiles/edit_cache.dir
+/home/jonhson/Documentos/UFRN/processamento-digital-imagens/parte 1/7 - convolucao/build/CMakeFiles/rebuild_cache.dir

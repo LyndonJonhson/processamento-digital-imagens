@@ -1,0 +1,3 @@
+/home/jonhson/Documentos/UFRN/processamento-digital-imagens/parte 1/4 - bitplanes/build/CMakeFiles/bitplanes.dir
+/home/jonhson/Documentos/UFRN/processamento-digital-imagens/parte 1/4 - bitplanes/build/CMakeFiles/edit_cache.dir
+/home/jonhson/Documentos/UFRN/processamento-digital-imagens/parte 1/4 - bitplanes/build/CMakeFiles/rebuild_cache.dir

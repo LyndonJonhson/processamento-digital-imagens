@@ -1,0 +1,3 @@
+/home/jonhson/Documentos/UFRN/processamento-digital-imagens/parte 1/6 - histogram/build/CMakeFiles/histograma.dir
+/home/jonhson/Documentos/UFRN/processamento-digital-imagens/parte 1/6 - histogram/build/CMakeFiles/edit_cache.dir
+/home/jonhson/Documentos/UFRN/processamento-digital-imagens/parte 1/6 - histogram/build/CMakeFiles/rebuild_cache.dir
