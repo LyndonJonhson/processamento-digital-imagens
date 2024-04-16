@@ -34,6 +34,7 @@ int main(int, char**) {
     }
   }
 
+  cv::imwrite("regions.png", image);
   cv::imshow("janela", image);
   cv::waitKey();
   return 0;

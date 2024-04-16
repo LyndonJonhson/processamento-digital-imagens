@@ -1,4 +1,4 @@
-# Install script for directory: /home/jonhson/Documentos/UFRN/PDI - Processamento Digital de Sinais/parte 1/2 - regions (exercicio)
+# Install script for directory: /home/jonhson/Documentos/UFRN/processamento-digital-imagens/parte 1/2 - regions (exercicio)
 
 # Set the install prefix
 if(NOT DEFINED CMAKE_INSTALL_PREFIX)
@@ -50,5 +50,5 @@ endif()
 
 string(REPLACE ";" "\n" CMAKE_INSTALL_MANIFEST_CONTENT
        "${CMAKE_INSTALL_MANIFEST_FILES}")
-file(WRITE "/home/jonhson/Documentos/UFRN/PDI - Processamento Digital de Sinais/parte 1/2 - regions (exercicio)/build/${CMAKE_INSTALL_MANIFEST}"
+file(WRITE "/home/jonhson/Documentos/UFRN/processamento-digital-imagens/parte 1/2 - regions (exercicio)/build/${CMAKE_INSTALL_MANIFEST}"
      "${CMAKE_INSTALL_MANIFEST_CONTENT}")

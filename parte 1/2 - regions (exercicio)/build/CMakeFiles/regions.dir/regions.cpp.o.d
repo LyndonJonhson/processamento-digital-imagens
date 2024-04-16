@@ -1,5 +1,5 @@
 CMakeFiles/regions.dir/regions.cpp.o: \
- /home/jonhson/Documentos/UFRN/PDI\ -\ Processamento\ Digital\ de\ Sinais/parte\ 1/2\ -\ regions\ (exercicio)/regions.cpp \
+ /home/jonhson/Documentos/UFRN/processamento-digital-imagens/parte\ 1/2\ -\ regions\ (exercicio)/regions.cpp \
  /usr/include/stdc-predef.h /usr/include/c++/13/iostream \
  /usr/include/c++/13/bits/requires_hosted.h \
  /usr/include/x86_64-linux-gnu/c++/13/bits/c++config.h \

@@ -8,7 +8,7 @@ set(CMAKE_DEPENDS_LANGUAGES
 
 # The set of dependency files which are needed:
 set(CMAKE_DEPENDS_DEPENDENCY_FILES
-  "/home/jonhson/Documentos/UFRN/PDI - Processamento Digital de Sinais/parte 1/2 - regions (exercicio)/regions.cpp" "CMakeFiles/regions.dir/regions.cpp.o" "gcc" "CMakeFiles/regions.dir/regions.cpp.o.d"
+  "/home/jonhson/Documentos/UFRN/processamento-digital-imagens/parte 1/2 - regions (exercicio)/regions.cpp" "CMakeFiles/regions.dir/regions.cpp.o" "gcc" "CMakeFiles/regions.dir/regions.cpp.o.d"
   )
 
 # Targets to which this target links which contain Fortran sources.
