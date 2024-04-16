@@ -112,3 +112,101 @@ int main(int, char**) {
 }
 ~~~
 No inicio do código é feita a leitura da imagem, em seguida é criado quatro retângulos baseados nas dimensões da imagem e com eles faz-se 4 imagens referente aos quatro quadrantes da imagem original. É criado em seguida um cv::Mat com as mesmas dimensões da imagem original, e com as 4 imagens dos quadrantes da imagem original, é utilizada a função **copyTo** para colocar as imagens nos quadrantes trocados na imagem final, gerando por fim a mesma imagem exemplo da atividade.
+
+### 1.2. Serialização de dados em ponto flutuante via FileStorage
+
+**Atividade 1:** Utilizando o programa-exemplo [filestorage.cpp](https://github.com/LyndonJonhson/processamento-digital-imagens/blob/main/parte%201/3%20-%20filestorage/filestorage.cpp) como base, crie um programa que gere uma imagem de dimensões 256x256 pixels contendo uma senóide de 4 períodos com amplitude igual 127 desenhada na horizontal, semelhante àquela apresentada na figura abaixo. Grave a imagem no formato YML e também exporte no formato PNG, como faz o programa-exemplo. Compare os arquivos gerados, extraindo uma linha correspondente de cada imagem gravada e comparando a diferença entre elas. Trace um gráfico da diferença calculada ao longo da linha correspondente extraída nas imagens. O que você observa? Por que isso acontece?
+<div align="center">
+  <img src="https://github.com/LyndonJonhson/processamento-digital-imagens/blob/main/parte%201/3%20-%20filestorage/build/senoide-256.png"
+       alt="imagem exemplo para atividade 2"/>
+</div>
+
+- **Resposta:**
+~~~cpp
+#include <iostream>
+#include <opencv2/opencv.hpp>
+#include <sstream>
+#include <string>
+
+int SIDE = 256;
+int PERIODOS[2] = {8, 4};
+
+int main(int argc, char** argv) {
+  std::stringstream ss_img1, ss_yml1;
+  std::stringstream ss_img2, ss_yml2;
+  cv::Mat image1, image2, result;
+
+  ss_yml1 << "senoide1-" << SIDE << ".yml";
+  image1 = cv::Mat::zeros(SIDE, SIDE, CV_32FC1);
+
+  ss_yml2 << "senoide2-" << SIDE << ".yml";
+  image2 = cv::Mat::zeros(SIDE, SIDE, CV_32FC1);
+
+  cv::FileStorage fs1(ss_yml1.str(), cv::FileStorage::WRITE);
+  cv::FileStorage fs2(ss_yml2.str(), cv::FileStorage::WRITE);
+
+  for (int i = 0; i < SIDE; i++) {
+    for (int j = 0; j < SIDE; j++) {
+      image1.at<float>(i, j) = 127 * sin(2 * M_PI * PERIODOS[0] * j / SIDE) + 128;
+      image2.at<float>(i, j) = 127 * sin(2 * M_PI * PERIODOS[1] * j / SIDE) + 128;
+    }
+  }
+
+  fs1 << "mat" << image1;
+  fs1.release();
+
+  fs2 << "mat" << image2;
+  fs2.release();
+
+  cv::normalize(image1, image1, 0, 255, cv::NORM_MINMAX);
+  image1.convertTo(image1, CV_8U);
+  ss_img1 << "senoide1-" << SIDE << ".png";
+  cv::imwrite(ss_img1.str(), image1);
+
+  cv::normalize(image2, image2, 0, 255, cv::NORM_MINMAX);
+  image2.convertTo(image2, CV_8U);
+  ss_img2 << "senoide2-" << SIDE << ".png";
+  cv::imwrite(ss_img2.str(), image2);
+
+  fs1.open(ss_yml1.str(), cv::FileStorage::READ);
+  fs1["mat"] >> image1;
+
+  fs2.open(ss_yml2.str(), cv::FileStorage::READ);
+  fs2["mat"] >> image2;
+
+  cv::normalize(image1, image1, 0, 255, cv::NORM_MINMAX);
+  image1.convertTo(image1, CV_8U);
+
+  cv::normalize(image2, image2, 0, 255, cv::NORM_MINMAX);
+  image2.convertTo(image2, CV_8U);
+
+  result = cv::Mat::zeros(SIDE, SIDE, CV_8U);
+  
+  for (int i = 0; i < SIDE; i++) {
+    for (int j = 0; j < SIDE; j++) {
+      if (image1.at<uchar>(i, j) > image2.at<uchar>(i, j)) {
+        result.at<uchar>(i, j) = image1.at<uchar>(i, j) - image2.at<uchar>(i, j);
+      } else {
+        result.at<uchar>(i, j) = image2.at<uchar>(i, j) - image1.at<uchar>(i, j);
+      }
+    }
+  }
+
+  cv::imwrite("result.png", result);
+  cv::imshow("image1", image1);
+  cv::imshow("image2", image2);
+  cv::imshow("result", result);
+  cv::waitKey();
+
+  return 0;
+}
+~~~
+Para gerar a imagem da senóide com 4 períodos foi basicamente repetir o código existente para a senóide de período 8. Após criar a senóide de 4 períodos, foi feito uma imagem que é resultado da subtração das duas imagens das senóides. Foi identificado na imagem resultante, que nos locais em que os pixels são brancos ou pretos nas duas imagens, o resultado é a cor preta. Nos locais em que uma das imagens tem pixels pretos e a outra tem pixels brancos, o resultado é a cor branca. E nos locais em que há transição das cores, a imagem resultante ficou cinza. Segue abaixo as imagens.
+<div align="center">
+  <img src="https://github.com/LyndonJonhson/processamento-digital-imagens/blob/main/parte%201/3%20-%20filestorage%20(exercicio)/build/senoide1-256.png"
+       alt="senoide 8 periodos"/><br>
+  <img src="https://github.com/LyndonJonhson/processamento-digital-imagens/blob/main/parte%201/3%20-%20filestorage%20(exercicio)/build/senoide2-256.png"
+       alt="senoide 4 periodos"/><br>
+  <img src="https://github.com/LyndonJonhson/processamento-digital-imagens/blob/main/parte%201/3%20-%20filestorage%20(exercicio)/build/result.png"
+       alt="resultado da subtração entre as imagens"/>
+</div>
