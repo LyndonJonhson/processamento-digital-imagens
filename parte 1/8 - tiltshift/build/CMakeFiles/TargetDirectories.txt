@@ -1,0 +1,3 @@
+/home/jonhson/Documentos/UFRN/processamento-digital-imagens/parte 1/8 - tiltshift/build/CMakeFiles/tiltshift.dir
+/home/jonhson/Documentos/UFRN/processamento-digital-imagens/parte 1/8 - tiltshift/build/CMakeFiles/edit_cache.dir
+/home/jonhson/Documentos/UFRN/processamento-digital-imagens/parte 1/8 - tiltshift/build/CMakeFiles/rebuild_cache.dir
