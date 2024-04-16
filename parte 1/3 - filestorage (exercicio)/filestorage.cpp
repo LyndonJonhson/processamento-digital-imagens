@@ -67,6 +67,7 @@ int main(int argc, char** argv) {
     }
   }
 
+  cv::imwrite("result.png", result);
   cv::imshow("image1", image1);
   cv::imshow("image2", image2);
   cv::imshow("result", result);
