@@ -1,0 +1,4 @@
+/home/jonhson/Documentos/UFRN/processamento-digital-imagens/parte 2/1 - dft (exercicio)/build/CMakeFiles/dft.dir
+/home/jonhson/Documentos/UFRN/processamento-digital-imagens/parte 2/1 - dft (exercicio)/build/CMakeFiles/dft_filestorage.dir
+/home/jonhson/Documentos/UFRN/processamento-digital-imagens/parte 2/1 - dft (exercicio)/build/CMakeFiles/edit_cache.dir
+/home/jonhson/Documentos/UFRN/processamento-digital-imagens/parte 2/1 - dft (exercicio)/build/CMakeFiles/rebuild_cache.dir
