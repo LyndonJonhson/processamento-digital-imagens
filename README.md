@@ -513,3 +513,231 @@ O código acima contém toda a base do programa [convolucao.cpp](https://github.
        alt="laplaciano do gaussiano"/>
 </div>
 Ao analisar as imagens, foi notado que com o filtro laplaciano do gaussiano as bordas estão bem mais evidentes do que quando foi usado o filtro laplaciano.
+
+## 2. Segunda unidade
+
+### 2.1. A transformada discreta de Fourier
+**Atividade 1:** Utilizando os programas [dft.cpp](https://github.com/LyndonJonhson/processamento-digital-imagens/blob/main/parte%202/1%20-%20dft/dft.cpp), calcule e apresente o espectro de magnitude da imagem [senoide-256](https://github.com/LyndonJonhson/processamento-digital-imagens/blob/main/parte%202/1%20-%20dft%20(exercicio)/senoide.png).
+<div align="center">
+  <p>Imagem da senoide-256</p>
+  <img src="https://github.com/LyndonJonhson/processamento-digital-imagens/blob/main/parte%202/1%20-%20dft%20(exercicio)/senoide.png"
+       alt="senoide-256"/>
+</div>
+
+- **Resposta:**
+~~~cpp
+#include <iostream>
+#include <opencv2/opencv.hpp>
+#include <vector>
+
+void swapQuadrants(cv::Mat& image) {
+  cv::Mat tmp, A, B, C, D;
+
+  // se a imagem tiver tamanho impar, recorta a regiao para o maior
+  // tamanho par possivel (-2 = 1111...1110)
+  image = image(cv::Rect(0, 0, image.cols & -2, image.rows & -2));
+
+  int centerX = image.cols / 2;
+  int centerY = image.rows / 2;
+
+  // rearranja os quadrantes da transformada de Fourier de forma que
+  // a origem fique no centro da imagem
+  // A B   ->  D C
+  // C D       B A
+  A = image(cv::Rect(0, 0, centerX, centerY));
+  B = image(cv::Rect(centerX, 0, centerX, centerY));
+  C = image(cv::Rect(0, centerY, centerX, centerY));
+  D = image(cv::Rect(centerX, centerY, centerX, centerY));
+
+  // swap quadrants (Top-Left with Bottom-Right)
+  A.copyTo(tmp);
+  D.copyTo(A);
+  tmp.copyTo(D);
+
+  // swap quadrant (Top-Right with Bottom-Left)
+  C.copyTo(tmp);
+  B.copyTo(C);
+  tmp.copyTo(B);
+}
+
+int main(int argc, char** argv) {
+  cv::Mat image, padded, complexImage;
+  std::vector<cv::Mat> planos;
+
+  image = imread(argv[1], cv::IMREAD_GRAYSCALE);
+  if (image.empty()) {
+    std::cout << "Erro abrindo imagem" << argv[1] << std::endl;
+    return EXIT_FAILURE;
+  }
+
+  // expande a imagem de entrada para o melhor tamanho no qual a DFT pode ser
+  // executada, preenchendo com zeros a lateral inferior direita.
+  int dft_M = cv::getOptimalDFTSize(image.rows);
+  int dft_N = cv::getOptimalDFTSize(image.cols);
+  cv::copyMakeBorder(image, padded, 0, dft_M - image.rows, 0,
+                     dft_N - image.cols, cv::BORDER_CONSTANT,
+                     cv::Scalar::all(0));
+
+  // prepara a matriz complexa para ser preenchida
+  // primeiro a parte real, contendo a imagem de entrada
+  planos.push_back(cv::Mat_<float>(padded));
+  // depois a parte imaginaria com valores nulos
+  planos.push_back(cv::Mat::zeros(padded.size(), CV_32F));
+
+  // combina os planos em uma unica estrutura de dados complexa
+  cv::merge(planos, complexImage);
+
+  // calcula a DFT
+  cv::dft(complexImage, complexImage);
+  swapQuadrants(complexImage);
+
+  // planos[0] : Re(DFT(image)
+  // planos[1] : Im(DFT(image)
+  cv::split(complexImage, planos);
+
+  // calcula o espectro de magnitude e de fase (em radianos)
+  cv::Mat magn, fase;
+  cv::cartToPolar(planos[0], planos[1], magn, fase, false);
+  cv::normalize(fase, fase, 0, 1, cv::NORM_MINMAX);
+
+  // caso deseje apenas o espectro de magnitude da DFT, use:
+  cv::magnitude(planos[0], planos[1], magn);
+
+  // some uma constante para evitar log(0)
+  // log(1 + sqrt(Re(DFT(image))^2 + Im(DFT(image))^2))
+  magn += cv::Scalar::all(1);
+
+  // calcula o logaritmo da magnitude para exibir
+  // com compressao de faixa dinamica
+  cv::log(magn, magn);
+  cv::normalize(magn, magn, 0, 1, cv::NORM_MINMAX);
+
+  // exibe as imagens processadas
+  cv::imshow("Imagem", image);
+  cv::imshow("Espectro de magnitude", magn);
+  cv::imshow("Espectro de fase", fase);
+
+  cv::waitKey();
+  return EXIT_SUCCESS;
+}
+~~~
+<div align="center">
+  <p>Imagem do espectro de magnitude da imagem senoide-256</p>
+  <img src="https://github.com/LyndonJonhson/processamento-digital-imagens/blob/main/parte%202/1%20-%20dft%20(exercicio)/build/magnitude-senoide-256.png"
+       alt="espectro de magnitude da imagem senoide-256"/>
+</div><br><br>
+
+**Atividade 2:** Usando agora o [filestorage.cpp](https://github.com/LyndonJonhson/processamento-digital-imagens/blob/main/parte%201/3%20-%20filestorage/filestorage.cpp) como referência, adapte o programa [dft.cpp](https://github.com/LyndonJonhson/processamento-digital-imagens/blob/main/parte%202/1%20-%20dft/dft.cpp) para ler a imagem em ponto flutuante armazenada no arquivo YAML equivalente ([senoide-256.yml](https://github.com/LyndonJonhson/processamento-digital-imagens/blob/main/parte%201/3%20-%20filestorage/build/senoide-256.yml)).
+
+- **Resposta:**
+~~~cpp
+#include <iostream>
+#include <opencv2/opencv.hpp>
+#include <vector>
+
+void swapQuadrants(cv::Mat& image) {
+  cv::Mat tmp, A, B, C, D;
+
+  // se a imagem tiver tamanho impar, recorta a regiao para o maior
+  // tamanho par possivel (-2 = 1111...1110)
+  image = image(cv::Rect(0, 0, image.cols & -2, image.rows & -2));
+
+  int centerX = image.cols / 2;
+  int centerY = image.rows / 2;
+
+  // rearranja os quadrantes da transformada de Fourier de forma que
+  // a origem fique no centro da imagem
+  // A B   ->  D C
+  // C D       B A
+  A = image(cv::Rect(0, 0, centerX, centerY));
+  B = image(cv::Rect(centerX, 0, centerX, centerY));
+  C = image(cv::Rect(0, centerY, centerX, centerY));
+  D = image(cv::Rect(centerX, centerY, centerX, centerY));
+
+  // swap quadrants (Top-Left with Bottom-Right)
+  A.copyTo(tmp);
+  D.copyTo(A);
+  tmp.copyTo(D);
+
+  // swap quadrant (Top-Right with Bottom-Left)
+  C.copyTo(tmp);
+  B.copyTo(C);
+  tmp.copyTo(B);
+}
+
+int main(int argc, char** argv) {
+  cv::Mat image, imageGray, padded, complexImage;
+  std::vector<cv::Mat> planos;
+  cv::FileStorage fs;
+
+  fs.open(argv[1], cv::FileStorage::READ);
+
+  fs["mat"] >> image;
+
+  cv::normalize(image, imageGray, 0, 255, cv::NORM_MINMAX);
+  imageGray.convertTo(imageGray, CV_8U);
+  
+  if (image.empty()) {
+    std::cout << "Erro abrindo imagem" << argv[1] << std::endl;
+    return EXIT_FAILURE;
+  }
+
+  // expande a imagem de entrada para o melhor tamanho no qual a DFT pode ser
+  // executada, preenchendo com zeros a lateral inferior direita.
+  int dft_M = cv::getOptimalDFTSize(image.rows);
+  int dft_N = cv::getOptimalDFTSize(image.cols);
+  cv::copyMakeBorder(image, padded, 0, dft_M - image.rows, 0,
+                     dft_N - image.cols, cv::BORDER_CONSTANT,
+                     cv::Scalar::all(0));
+
+  // prepara a matriz complexa para ser preenchida
+  // primeiro a parte real, contendo a imagem de entrada
+  planos.push_back(cv::Mat_<float>(padded));
+  // depois a parte imaginaria com valores nulos
+  planos.push_back(cv::Mat::zeros(padded.size(), CV_32F));
+
+  // combina os planos em uma unica estrutura de dados complexa
+  cv::merge(planos, complexImage);
+
+  // calcula a DFT
+  cv::dft(complexImage, complexImage);
+  swapQuadrants(complexImage);
+
+  // planos[0] : Re(DFT(image)
+  // planos[1] : Im(DFT(image)
+  cv::split(complexImage, planos);
+
+  // calcula o espectro de magnitude e de fase (em radianos)
+  cv::Mat magn, fase;
+  cv::cartToPolar(planos[0], planos[1], magn, fase, false);
+  cv::normalize(fase, fase, 0, 1, cv::NORM_MINMAX);
+
+  // caso deseje apenas o espectro de magnitude da DFT, use:
+  cv::magnitude(planos[0], planos[1], magn);
+
+  // some uma constante para evitar log(0)
+  // log(1 + sqrt(Re(DFT(image))^2 + Im(DFT(image))^2))
+  magn += cv::Scalar::all(1);
+
+  // calcula o logaritmo da magnitude para exibir
+  // com compressao de faixa dinamica
+  cv::log(magn, magn);
+  cv::normalize(magn, magn, 0, 1, cv::NORM_MINMAX);
+
+  // exibe as imagens processadas
+  cv::imshow("Imagem", imageGray);
+  cv::imshow("Espectro de magnitude", magn);
+  cv::imshow("Espectro de fase", fase);
+
+  cv::waitKey();
+  return EXIT_SUCCESS;
+}
+~~~
+<div align="center">
+  <p>Imagem do espectro de magnitude da imagem senoide-256.yml</p>
+  <img src="https://github.com/LyndonJonhson/processamento-digital-imagens/blob/main/parte%202/1%20-%20dft%20(exercicio)/build/magnitude-senoide-256-yml.png"
+       alt="espectro de magnitude da imagem senoide-256.yml"/>
+</div><br><br>
+
+**Atividade 3:** Compare o novo espectro de magnitude gerado com o valor teórico da transformada de Fourier da senóide. O que mudou para que o espectro de magnitude gerado agora esteja mais próximo do valor teórico? Porque isso aconteceu?
+- **Resposta:** A senoide-256.yml ficou mais próxima do valor teórico por causa das suas casas decimais extras após a vírgula, com isso tendo uma imagem mais próxima do real.
