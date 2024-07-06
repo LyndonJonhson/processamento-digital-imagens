@@ -1054,3 +1054,85 @@ No código acima foi usado os códigos de canny e do pontilhismo para editar a i
   <p>Imagem de saída do código cannypoints.cpp</p>
   <img src="https://github.com/LyndonJonhson/processamento-digital-imagens/blob/main/parte%202/3%20-%20cannypoints%20(exercicio)/image.png" />
 </div>
+
+### 2.4. Quantização vetorial com k-means
+**Atividade:** Utilizando o programa [kmeans.cpp](https://github.com/LyndonJonhson/processamento-digital-imagens/blob/main/parte%202/4%20-%20kmeans/kmeans.cpp) como exemplo prepare um programa exemplo onde a execução do código se dê usando o parâmetro nRodadas=1 e inciar os centros de forma aleatória usando o parâmetro KMEANS_RANDOM_CENTERS ao invés de KMEANS_PP_CENTERS. Realize 10 rodadas diferentes do algoritmo e compare as imagens produzidas. Explique porque elas podem diferir tanto.
+
+- **Resposta:**
+~~~cpp
+#include <cstdlib>
+#include <opencv2/opencv.hpp>
+
+int main(int argc, char** argv) {
+  int nClusters = 12, nRodadas = 1;
+  
+  char filename[50];
+
+  cv::Mat rotulos, centros;
+  cv::Mat img = cv::imread(argv[1], cv::IMREAD_COLOR);
+  cv::Mat samples(img.rows * img.cols, 3, CV_32F);
+
+  for (int n = 0; n < 10; n++) {
+
+    for (int y = 0; y < img.rows; y++) {
+      for (int x = 0; x < img.cols; x++) {
+        for (int z = 0; z < 3; z++) {
+          samples.at<float>(y + x * img.rows, z) = img.at<cv::Vec3b>(y, x)[z];
+        }
+      }
+    }
+
+    cv::kmeans(
+      samples, 
+      nClusters, 
+      rotulos, 
+      cv::TermCriteria(
+        cv::TermCriteria::EPS | cv::TermCriteria::COUNT, 10000, 0.0001
+      ),
+      nRodadas, 
+      cv::KMEANS_RANDOM_CENTERS, 
+      centros
+    );
+
+    cv::Mat rotulada(img.size(), img.type());
+    for (int y = 0; y < img.rows; y++) {
+      for (int x = 0; x < img.cols; x++) {
+        int indice = rotulos.at<int>(y + x * img.rows, 0);
+        rotulada.at<cv::Vec3b>(y, x)[0] = (uchar)centros.at<float>(indice, 0);
+        rotulada.at<cv::Vec3b>(y, x)[1] = (uchar)centros.at<float>(indice, 1);
+        rotulada.at<cv::Vec3b>(y, x)[2] = (uchar)centros.at<float>(indice, 2);
+      }
+    }
+    sprintf(filename, "sushi-%.d.png", n+1);
+    
+    cv::imwrite(filename, rotulada);
+
+  }
+  cv::waitKey();
+}
+~~~
+<div align="center">
+  <p>Imagem original</p>
+  <img src="https://github.com/LyndonJonhson/processamento-digital-imagens/blob/main/parte%202/4%20-%20kmeans%20(exercicio)/sushi.png"/><br><br>
+  <p>Imagem 1 com kmeans</p>
+  <img src="https://github.com/LyndonJonhson/processamento-digital-imagens/blob/main/parte%202/4%20-%20kmeans%20(exercicio)/build/sushi-1.png"/><br><br>
+  <p>Imagem 2 com kmeans</p>
+  <img src="https://github.com/LyndonJonhson/processamento-digital-imagens/blob/main/parte%202/4%20-%20kmeans%20(exercicio)/build/sushi-2.png"/><br><br>
+  <p>Imagem 3 com kmeans</p>
+  <img src="https://github.com/LyndonJonhson/processamento-digital-imagens/blob/main/parte%202/4%20-%20kmeans%20(exercicio)/build/sushi-3.png"/><br><br>
+  <p>Imagem 4 com kmeans</p>
+  <img src="https://github.com/LyndonJonhson/processamento-digital-imagens/blob/main/parte%202/4%20-%20kmeans%20(exercicio)/build/sushi-4.png"/><br><br>
+  <p>Imagem 5 com kmeans</p>
+  <img src="https://github.com/LyndonJonhson/processamento-digital-imagens/blob/main/parte%202/4%20-%20kmeans%20(exercicio)/build/sushi-5.png"/><br><br>
+  <p>Imagem 6 com kmeans</p>
+  <img src="https://github.com/LyndonJonhson/processamento-digital-imagens/blob/main/parte%202/4%20-%20kmeans%20(exercicio)/build/sushi-6.png"/><br><br>
+  <p>Imagem 7 com kmeans</p>
+  <img src="https://github.com/LyndonJonhson/processamento-digital-imagens/blob/main/parte%202/4%20-%20kmeans%20(exercicio)/build/sushi-7.png"/><br><br>
+  <p>Imagem 8 com kmeans</p>
+  <img src="https://github.com/LyndonJonhson/processamento-digital-imagens/blob/main/parte%202/4%20-%20kmeans%20(exercicio)/build/sushi-8.png"/><br><br>
+  <p>Imagem 9 com kmeans</p>
+  <img src="https://github.com/LyndonJonhson/processamento-digital-imagens/blob/main/parte%202/4%20-%20kmeans%20(exercicio)/build/sushi-9.png"/><br><br>
+  <p>Imagem 10 com kmeans</p>
+  <img src="https://github.com/LyndonJonhson/processamento-digital-imagens/blob/main/parte%202/4%20-%20kmeans%20(exercicio)/build/sushi-10.png"/><br><br>
+</div>
+Como podemos perceber a imagem gerada difere para cada inicialização de centros. O algoritmo escolhe centros que irão definir quais cores serão utilizadas para representar a imagem final. Desse modo, gerando os centros de maneira aleatória, o resultado final para cada centro é diferente, por isso a imagem varia a cada iteração.
