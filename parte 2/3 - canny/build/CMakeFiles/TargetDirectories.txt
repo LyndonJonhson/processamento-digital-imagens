@@ -1,0 +1,3 @@
+/home/jonhson/Documentos/UFRN/processamento-digital-imagens/parte 2/3 - canny/build/CMakeFiles/canny.dir
+/home/jonhson/Documentos/UFRN/processamento-digital-imagens/parte 2/3 - canny/build/CMakeFiles/edit_cache.dir
+/home/jonhson/Documentos/UFRN/processamento-digital-imagens/parte 2/3 - canny/build/CMakeFiles/rebuild_cache.dir

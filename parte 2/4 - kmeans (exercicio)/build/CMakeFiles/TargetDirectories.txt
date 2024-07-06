@@ -1,0 +1,3 @@
+/home/jonhson/Documentos/UFRN/processamento-digital-imagens/parte 2/4 - kmeans (exercicio)/build/CMakeFiles/kmeans.dir
+/home/jonhson/Documentos/UFRN/processamento-digital-imagens/parte 2/4 - kmeans (exercicio)/build/CMakeFiles/edit_cache.dir
+/home/jonhson/Documentos/UFRN/processamento-digital-imagens/parte 2/4 - kmeans (exercicio)/build/CMakeFiles/rebuild_cache.dir
