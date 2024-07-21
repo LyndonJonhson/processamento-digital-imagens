@@ -513,3 +513,626 @@ O código acima contém toda a base do programa [convolucao.cpp](https://github.
        alt="laplaciano do gaussiano"/>
 </div>
 Ao analisar as imagens, foi notado que com o filtro laplaciano do gaussiano as bordas estão bem mais evidentes do que quando foi usado o filtro laplaciano.
+
+## 2. Segunda unidade
+
+### 2.1. A transformada discreta de Fourier
+**Atividade 1:** Utilizando os programas [dft.cpp](https://github.com/LyndonJonhson/processamento-digital-imagens/blob/main/parte%202/1%20-%20dft/dft.cpp), calcule e apresente o espectro de magnitude da imagem [senoide-256](https://github.com/LyndonJonhson/processamento-digital-imagens/blob/main/parte%202/1%20-%20dft%20(exercicio)/senoide.png).
+<div align="center">
+  <p>Imagem da senoide-256</p>
+  <img src="https://github.com/LyndonJonhson/processamento-digital-imagens/blob/main/parte%202/1%20-%20dft%20(exercicio)/senoide.png"
+       alt="senoide-256"/>
+</div>
+
+- **Resposta:**
+~~~cpp
+#include <iostream>
+#include <opencv2/opencv.hpp>
+#include <vector>
+
+void swapQuadrants(cv::Mat& image) {
+  cv::Mat tmp, A, B, C, D;
+
+  // se a imagem tiver tamanho impar, recorta a regiao para o maior
+  // tamanho par possivel (-2 = 1111...1110)
+  image = image(cv::Rect(0, 0, image.cols & -2, image.rows & -2));
+
+  int centerX = image.cols / 2;
+  int centerY = image.rows / 2;
+
+  // rearranja os quadrantes da transformada de Fourier de forma que
+  // a origem fique no centro da imagem
+  // A B   ->  D C
+  // C D       B A
+  A = image(cv::Rect(0, 0, centerX, centerY));
+  B = image(cv::Rect(centerX, 0, centerX, centerY));
+  C = image(cv::Rect(0, centerY, centerX, centerY));
+  D = image(cv::Rect(centerX, centerY, centerX, centerY));
+
+  // swap quadrants (Top-Left with Bottom-Right)
+  A.copyTo(tmp);
+  D.copyTo(A);
+  tmp.copyTo(D);
+
+  // swap quadrant (Top-Right with Bottom-Left)
+  C.copyTo(tmp);
+  B.copyTo(C);
+  tmp.copyTo(B);
+}
+
+int main(int argc, char** argv) {
+  cv::Mat image, padded, complexImage;
+  std::vector<cv::Mat> planos;
+
+  image = imread(argv[1], cv::IMREAD_GRAYSCALE);
+  if (image.empty()) {
+    std::cout << "Erro abrindo imagem" << argv[1] << std::endl;
+    return EXIT_FAILURE;
+  }
+
+  // expande a imagem de entrada para o melhor tamanho no qual a DFT pode ser
+  // executada, preenchendo com zeros a lateral inferior direita.
+  int dft_M = cv::getOptimalDFTSize(image.rows);
+  int dft_N = cv::getOptimalDFTSize(image.cols);
+  cv::copyMakeBorder(image, padded, 0, dft_M - image.rows, 0,
+                     dft_N - image.cols, cv::BORDER_CONSTANT,
+                     cv::Scalar::all(0));
+
+  // prepara a matriz complexa para ser preenchida
+  // primeiro a parte real, contendo a imagem de entrada
+  planos.push_back(cv::Mat_<float>(padded));
+  // depois a parte imaginaria com valores nulos
+  planos.push_back(cv::Mat::zeros(padded.size(), CV_32F));
+
+  // combina os planos em uma unica estrutura de dados complexa
+  cv::merge(planos, complexImage);
+
+  // calcula a DFT
+  cv::dft(complexImage, complexImage);
+  swapQuadrants(complexImage);
+
+  // planos[0] : Re(DFT(image)
+  // planos[1] : Im(DFT(image)
+  cv::split(complexImage, planos);
+
+  // calcula o espectro de magnitude e de fase (em radianos)
+  cv::Mat magn, fase;
+  cv::cartToPolar(planos[0], planos[1], magn, fase, false);
+  cv::normalize(fase, fase, 0, 1, cv::NORM_MINMAX);
+
+  // caso deseje apenas o espectro de magnitude da DFT, use:
+  cv::magnitude(planos[0], planos[1], magn);
+
+  // some uma constante para evitar log(0)
+  // log(1 + sqrt(Re(DFT(image))^2 + Im(DFT(image))^2))
+  magn += cv::Scalar::all(1);
+
+  // calcula o logaritmo da magnitude para exibir
+  // com compressao de faixa dinamica
+  cv::log(magn, magn);
+  cv::normalize(magn, magn, 0, 1, cv::NORM_MINMAX);
+
+  // exibe as imagens processadas
+  cv::imshow("Imagem", image);
+  cv::imshow("Espectro de magnitude", magn);
+  cv::imshow("Espectro de fase", fase);
+
+  cv::waitKey();
+  return EXIT_SUCCESS;
+}
+~~~
+<div align="center">
+  <p>Imagem do espectro de magnitude da imagem senoide-256</p>
+  <img src="https://github.com/LyndonJonhson/processamento-digital-imagens/blob/main/parte%202/1%20-%20dft%20(exercicio)/build/magnitude-senoide-256.png"
+       alt="espectro de magnitude da imagem senoide-256"/>
+</div><br><br>
+
+**Atividade 2:** Usando agora o [filestorage.cpp](https://github.com/LyndonJonhson/processamento-digital-imagens/blob/main/parte%201/3%20-%20filestorage/filestorage.cpp) como referência, adapte o programa [dft.cpp](https://github.com/LyndonJonhson/processamento-digital-imagens/blob/main/parte%202/1%20-%20dft/dft.cpp) para ler a imagem em ponto flutuante armazenada no arquivo YAML equivalente ([senoide-256.yml](https://github.com/LyndonJonhson/processamento-digital-imagens/blob/main/parte%201/3%20-%20filestorage/build/senoide-256.yml)).
+
+- **Resposta:**
+~~~cpp
+#include <iostream>
+#include <opencv2/opencv.hpp>
+#include <vector>
+
+void swapQuadrants(cv::Mat& image) {
+  cv::Mat tmp, A, B, C, D;
+
+  // se a imagem tiver tamanho impar, recorta a regiao para o maior
+  // tamanho par possivel (-2 = 1111...1110)
+  image = image(cv::Rect(0, 0, image.cols & -2, image.rows & -2));
+
+  int centerX = image.cols / 2;
+  int centerY = image.rows / 2;
+
+  // rearranja os quadrantes da transformada de Fourier de forma que
+  // a origem fique no centro da imagem
+  // A B   ->  D C
+  // C D       B A
+  A = image(cv::Rect(0, 0, centerX, centerY));
+  B = image(cv::Rect(centerX, 0, centerX, centerY));
+  C = image(cv::Rect(0, centerY, centerX, centerY));
+  D = image(cv::Rect(centerX, centerY, centerX, centerY));
+
+  // swap quadrants (Top-Left with Bottom-Right)
+  A.copyTo(tmp);
+  D.copyTo(A);
+  tmp.copyTo(D);
+
+  // swap quadrant (Top-Right with Bottom-Left)
+  C.copyTo(tmp);
+  B.copyTo(C);
+  tmp.copyTo(B);
+}
+
+int main(int argc, char** argv) {
+  cv::Mat image, imageGray, padded, complexImage;
+  std::vector<cv::Mat> planos;
+  cv::FileStorage fs;
+
+  fs.open(argv[1], cv::FileStorage::READ);
+
+  fs["mat"] >> image;
+
+  cv::normalize(image, imageGray, 0, 255, cv::NORM_MINMAX);
+  imageGray.convertTo(imageGray, CV_8U);
+  
+  if (image.empty()) {
+    std::cout << "Erro abrindo imagem" << argv[1] << std::endl;
+    return EXIT_FAILURE;
+  }
+
+  // expande a imagem de entrada para o melhor tamanho no qual a DFT pode ser
+  // executada, preenchendo com zeros a lateral inferior direita.
+  int dft_M = cv::getOptimalDFTSize(image.rows);
+  int dft_N = cv::getOptimalDFTSize(image.cols);
+  cv::copyMakeBorder(image, padded, 0, dft_M - image.rows, 0,
+                     dft_N - image.cols, cv::BORDER_CONSTANT,
+                     cv::Scalar::all(0));
+
+  // prepara a matriz complexa para ser preenchida
+  // primeiro a parte real, contendo a imagem de entrada
+  planos.push_back(cv::Mat_<float>(padded));
+  // depois a parte imaginaria com valores nulos
+  planos.push_back(cv::Mat::zeros(padded.size(), CV_32F));
+
+  // combina os planos em uma unica estrutura de dados complexa
+  cv::merge(planos, complexImage);
+
+  // calcula a DFT
+  cv::dft(complexImage, complexImage);
+  swapQuadrants(complexImage);
+
+  // planos[0] : Re(DFT(image)
+  // planos[1] : Im(DFT(image)
+  cv::split(complexImage, planos);
+
+  // calcula o espectro de magnitude e de fase (em radianos)
+  cv::Mat magn, fase;
+  cv::cartToPolar(planos[0], planos[1], magn, fase, false);
+  cv::normalize(fase, fase, 0, 1, cv::NORM_MINMAX);
+
+  // caso deseje apenas o espectro de magnitude da DFT, use:
+  cv::magnitude(planos[0], planos[1], magn);
+
+  // some uma constante para evitar log(0)
+  // log(1 + sqrt(Re(DFT(image))^2 + Im(DFT(image))^2))
+  magn += cv::Scalar::all(1);
+
+  // calcula o logaritmo da magnitude para exibir
+  // com compressao de faixa dinamica
+  cv::log(magn, magn);
+  cv::normalize(magn, magn, 0, 1, cv::NORM_MINMAX);
+
+  // exibe as imagens processadas
+  cv::imshow("Imagem", imageGray);
+  cv::imshow("Espectro de magnitude", magn);
+  cv::imshow("Espectro de fase", fase);
+
+  cv::waitKey();
+  return EXIT_SUCCESS;
+}
+~~~
+<div align="center">
+  <p>Imagem do espectro de magnitude da imagem senoide-256.yml</p>
+  <img src="https://github.com/LyndonJonhson/processamento-digital-imagens/blob/main/parte%202/1%20-%20dft%20(exercicio)/build/magnitude-senoide-256-yml.png"
+       alt="espectro de magnitude da imagem senoide-256.yml"/>
+</div><br><br>
+
+**Atividade 3:** Compare o novo espectro de magnitude gerado com o valor teórico da transformada de Fourier da senóide. O que mudou para que o espectro de magnitude gerado agora esteja mais próximo do valor teórico? Porque isso aconteceu?
+- **Resposta:** A senoide-256.yml ficou mais próxima do valor teórico por causa das suas casas decimais extras após a vírgula, com isso tendo uma imagem mais próxima do real.
+
+### 2.2. Filtragem no Domínio da Frequência
+
+**Atividade:** Utilizando o programa [dftfilter.cpp](https://github.com/LyndonJonhson/processamento-digital-imagens/blob/main/parte%202/2%20-%20dftfilter/dftfilter.cpp) como referência, implemente o filtro homomórfico para melhorar imagens com iluminação irregular. Crie uma cena mal iluminada e ajuste os parâmetros do filtro homomórfico para corrigir a iluminação da melhor forma possível. Assuma que a imagem fornecida é em tons de cinza.
+
+- **Resposta:**
+~~~cpp
+#include <iostream>
+#include <vector>
+#include <opencv2/opencv.hpp>
+
+cv::Mat image, padded, complexImage, filter, result;
+std::vector<cv::Mat> planos;
+int dft_M, dft_N;
+double gh, gl, d, c;
+int gl_slider = 20;
+int gl_slider_max = 50;
+int gh_slider = 2;
+int gh_slider_max = 10;
+int c_slider = 1;
+int c_slider_max = 100;
+int d_slider = 5;
+int d_slider_max = 200;
+
+void swapQuadrants(cv::Mat& image) {
+  cv::Mat tmp, A, B, C, D;
+
+  // se a imagem tiver tamanho impar, recorta a regiao para o maior
+  // tamanho par possivel (-2 = 1111...1110)
+  image = image(cv::Rect(0, 0, image.cols & -2, image.rows & -2));
+
+  int centerX = image.cols / 2;
+  int centerY = image.rows / 2;
+
+  // rearranja os quadrantes da transformada de Fourier de forma que 
+  // a origem fique no centro da imagem
+  // A B   ->  D C
+  // C D       B A
+  A = image(cv::Rect(0, 0, centerX, centerY));
+  B = image(cv::Rect(centerX, 0, centerX, centerY));
+  C = image(cv::Rect(0, centerY, centerX, centerY));
+  D = image(cv::Rect(centerX, centerY, centerX, centerY));
+
+  // swap quadrants (Top-Left with Bottom-Right)
+  A.copyTo(tmp);
+  D.copyTo(A);
+  tmp.copyTo(D);
+
+  // swap quadrant (Top-Right with Bottom-Left)
+  C.copyTo(tmp);
+  B.copyTo(C);
+  tmp.copyTo(B);
+}
+
+void makeFilter(const cv::Mat &image, cv::Mat &filter){
+  cv::Mat_<float> filter2D(image.rows, image.cols);
+
+  for (int i = 0; i < image.rows; i++) {
+    for (int j = 0; j < image.cols; j++) {
+        filter2D.at<float>(i, j) = (gh - gl)*(1 - exp(-c*(( (i-dft_M/2)*(i-dft_M/2) + (j-dft_N/2)*(j-dft_N/2) ) / (d*d) ))) + gl;
+    }
+  }
+
+  cv::Mat planes[] = {filter2D, filter2D};
+  cv::merge(planes, 2, filter);
+}
+
+void applyFilter(){
+  planos.clear();
+  // prepara a matriz complexa para ser preenchida
+  // primeiro a parte real, contendo a imagem de entrada
+  planos.push_back(cv::Mat_<float>(padded)); 
+  // depois a parte imaginaria com valores nulos
+  planos.push_back(cv::Mat::zeros(padded.size(), CV_32F));
+
+  // combina os planos em uma unica estrutura de dados complexa
+  cv::merge(planos, complexImage);
+
+  // calcula a DFT
+  cv::dft(complexImage, complexImage); 
+  swapQuadrants(complexImage);
+
+  // cria o filtro ideal e aplica a filtragem de frequencia
+  makeFilter(complexImage, filter);
+  cv::mulSpectrums(complexImage, filter, complexImage, 0);
+
+  // calcula a DFT inversa
+  swapQuadrants(complexImage);
+  cv::idft(complexImage, complexImage);
+
+  // planos[0] : Re(DFT(image)
+  // planos[1] : Im(DFT(image)
+  cv::split(complexImage, planos);
+
+  // recorta a imagem filtrada para o tamanho original
+  // selecionando a regiao de interesse (roi)
+  cv::Rect roi(0, 0, image.cols, image.rows);
+  result = planos[0](roi);
+
+  // normaliza a parte real para exibicao
+  cv::normalize(result, result, 0, 1, cv::NORM_MINMAX);
+
+  cv::imshow("Homomorphic", result);
+  cv::imwrite("dft-filter.png", result * 255);
+}
+
+void on_trackbar(int, void*){
+  gl = (double) gl_slider/10;
+  gh = (double) gh_slider/10;
+  c = (double) c_slider;
+  d = (double) d_slider;
+  applyFilter();
+}
+
+int main(int argc, char** argv) {
+
+  image = imread(argv[1], cv::IMREAD_GRAYSCALE);
+
+  if (image.empty()) {
+    std::cout << "Erro abrindo imagem" << argv[1] << std::endl;
+    return EXIT_FAILURE;
+  }
+
+  // expande a imagem de entrada para o melhor tamanho no qual a DFT pode ser
+  // executada, preenchendo com zeros a lateral inferior direita.
+  dft_M = cv::getOptimalDFTSize(image.rows);
+  dft_N = cv::getOptimalDFTSize(image.cols); 
+  cv::copyMakeBorder(image, padded, 0, dft_M - image.rows, 0, dft_N - image.cols, cv::BORDER_CONSTANT, cv::Scalar::all(0));
+  
+  cv::namedWindow("Homomorphic", 1);
+
+  char TrackbarName[50];
+
+  std::sprintf( TrackbarName, "gl x %d", gl_slider_max );
+  cv::createTrackbar( TrackbarName, "Homomorphic", &gl_slider, gl_slider_max, on_trackbar);
+
+  std::sprintf( TrackbarName, "gh x %d", gh_slider_max );
+  cv::createTrackbar( TrackbarName, "Homomorphic", &gh_slider, gh_slider_max, on_trackbar);
+
+  std::sprintf( TrackbarName, "c x %d", c_slider_max );
+  cv::createTrackbar( TrackbarName, "Homomorphic", &c_slider, c_slider_max, on_trackbar);
+
+  std::sprintf( TrackbarName, "d x %d", d_slider_max );
+  cv::createTrackbar( TrackbarName, "Homomorphic", &d_slider, d_slider_max, on_trackbar);
+
+  applyFilter();
+
+  cv::waitKey(0);
+  return EXIT_SUCCESS;
+}
+~~~
+<div align="center">
+  <p>Imagem de teclado em cena escura</p>
+  <img src="https://github.com/LyndonJonhson/processamento-digital-imagens/blob/main/parte%202/2%20-%20dftfilter%20(exercicio)/teclado.png"
+       alt="imagem de um teclado em uma cena escura"/><br><br>
+  <p>Imagem de teclado com filtro aplicado</p>
+  <img src="https://github.com/LyndonJonhson/processamento-digital-imagens/blob/main/parte%202/2%20-%20dftfilter%20(exercicio)/teclado-filtered.png"
+       alt="imagem de um teclado com filtro aplicado"/>
+</div>
+
+### 2.3. Detecção de bordas com o algoritmo de Canny
+**Atividade:** Utilizando os programas [canny.cpp](https://github.com/LyndonJonhson/processamento-digital-imagens/blob/main/parte%202/3%20-%20canny/canny.cpp) e [pontilhismo.cpp](https://github.com/LyndonJonhson/processamento-digital-imagens/blob/main/parte%202/3%20-%20pontilhismo/pontilhismo.cpp) como referência, implemente um programa cannypoints.cpp. A idéia é usar as bordas produzidas pelo algoritmo de Canny para melhorar a qualidade da imagem pontilhista gerada. A forma como a informação de borda será usada é livre. Entretanto, são apresentadas algumas sugestões de técnicas que poderiam ser utilizadas:
+
+- **Resposta:**
+~~~cpp
+#include <algorithm>
+#include <cstdlib>
+#include <ctime>
+#include <fstream>
+#include <iomanip>
+#include <iostream>
+#include <numeric>
+#include <opencv2/opencv.hpp>
+#include <vector>
+#include <chrono>
+#include <random>
+
+#define STEP 5
+#define JITTER 3
+
+cv::Mat image, points, border;
+
+int width, height;
+int x, y, gray;
+
+int top_slider_canny = 10;
+int top_slider_canny_max = 200;
+int top_slider_point = 1;
+int top_slider_point_max = 20;
+int top_slider_point_border = 1;
+int top_slider_point_border_max = 20;
+
+char TrackbarNameCanny[50];
+char TrackbarNamePoint[50];
+char TrackbarNamePointBorder[50];
+
+void pontilhismo() {
+  std::srand(std::time(0));
+
+  std::vector<int> yrange;
+  std::vector<int> xrange;
+
+  xrange.resize(height / STEP);
+  yrange.resize(width / STEP);
+
+  std::iota(xrange.begin(), xrange.end(), 0);
+  std::iota(yrange.begin(), yrange.end(), 0);
+
+  for(uint i = 0; i < xrange.size(); i++) {
+    xrange[i] = xrange[i] * STEP + STEP / 2;
+  }
+
+  for(uint i = 0; i < yrange.size(); i++) {
+    yrange[i] = yrange[i] * STEP + STEP / 2;
+  }
+
+  points = cv::Mat(height, width, CV_8U, cv::Scalar(255));
+
+  unsigned seed = std::chrono::system_clock::now().time_since_epoch().count();
+  std::shuffle(xrange.begin(), xrange.end(), std::default_random_engine(seed));
+
+  for (auto i : xrange) {
+  std::shuffle(yrange.begin(), yrange.end(), std::default_random_engine(seed));
+    for (auto j : yrange) {
+      x = i + std::rand() % (2 * JITTER) - JITTER + 1;
+      y = j + std::rand() % (2 * JITTER) - JITTER + 1;
+      gray = image.at<uchar>(x, y);
+      cv::circle(
+        points, 
+        cv::Point(y, x), 
+        top_slider_point, 
+        CV_RGB(gray, gray, gray),
+        cv::FILLED, 
+        cv::LINE_AA
+      );
+    }
+  }
+}
+
+void applyPointInBorders() {  
+  for(x = 0; x < height; x++) {
+    for(y = 0; y < width; y++) {
+      if(border.at<uchar>(x, y) == 255) {
+        gray = image.at<uchar>(x, y);
+        circle(
+          points,
+          cv::Point(y, x),
+          top_slider_point_border,
+          CV_RGB(gray, gray, gray),
+          cv::FILLED,
+          cv::LINE_AA
+        );
+      }
+    }
+  }
+}
+
+void on_trackbar(int, void*){
+  pontilhismo();
+  cv::Canny(image, border, top_slider_canny, 3*top_slider_canny);
+  applyPointInBorders();
+  cv::imshow("Cannypoints", points);
+}
+
+int main(int argc, char** argv){
+  image = cv::imread(argv[1], cv::IMREAD_GRAYSCALE);
+
+  if (image.empty()) {
+    std::cout << "Could not open or find the image" << std::endl;
+    return -1;
+  }
+
+  sprintf(TrackbarNameCanny, "Canny", top_slider_canny_max);
+  sprintf(TrackbarNamePoint, "Points Radius", top_slider_point_max);
+  sprintf(TrackbarNamePointBorder, "Border Radius", top_slider_point_border_max);
+
+  //altura e largura da imagem
+  width = image.cols;
+  height = image.rows;
+
+  //prepara a janela para exibição da imagem
+  cv::namedWindow("Cannypoints", 1);
+  cv::createTrackbar(
+    TrackbarNameCanny,
+    "Cannypoints",
+    &top_slider_canny,
+    top_slider_canny_max,
+    on_trackbar
+  );
+  cv::createTrackbar(
+    TrackbarNamePoint,
+    "Cannypoints",
+    &top_slider_point,
+    top_slider_point_max,
+    on_trackbar
+  );
+  cv::createTrackbar(
+    TrackbarNamePointBorder,
+    "Cannypoints",
+    &top_slider_point_border,
+    top_slider_point_border_max,
+    on_trackbar
+  );
+
+  cv::waitKey(0);
+  return EXIT_SUCCESS;
+}
+~~~
+No código acima foi usado os códigos de canny e do pontilhismo para editar a imagem de entrada. Inicialmente foi aplicado o pontilhismo na imagem toda com raio = 1 inicialmente, após isso aplico canny para pegar as bordas e com elas aplicar também o pontilhismo, porém com raios diferentes. Então como é possível ver na imagem abaixo, é possível editar a detecção de bordas com canny e o tamanho do raio dos pontos na imagem toda e também nas bordas de forma separada.
+<div align="center">
+  <p>Imagem de saída do código cannypoints.cpp</p>
+  <img src="https://github.com/LyndonJonhson/processamento-digital-imagens/blob/main/parte%202/3%20-%20cannypoints%20(exercicio)/image.png" />
+</div>
+
+### 2.4. Quantização vetorial com k-means
+**Atividade:** Utilizando o programa [kmeans.cpp](https://github.com/LyndonJonhson/processamento-digital-imagens/blob/main/parte%202/4%20-%20kmeans/kmeans.cpp) como exemplo prepare um programa exemplo onde a execução do código se dê usando o parâmetro nRodadas=1 e inciar os centros de forma aleatória usando o parâmetro KMEANS_RANDOM_CENTERS ao invés de KMEANS_PP_CENTERS. Realize 10 rodadas diferentes do algoritmo e compare as imagens produzidas. Explique porque elas podem diferir tanto.
+
+- **Resposta:**
+~~~cpp
+#include <cstdlib>
+#include <opencv2/opencv.hpp>
+
+int main(int argc, char** argv) {
+  int nClusters = 12, nRodadas = 1;
+  
+  char filename[50];
+
+  cv::Mat rotulos, centros;
+  cv::Mat img = cv::imread(argv[1], cv::IMREAD_COLOR);
+  cv::Mat samples(img.rows * img.cols, 3, CV_32F);
+
+  for (int n = 0; n < 10; n++) {
+
+    for (int y = 0; y < img.rows; y++) {
+      for (int x = 0; x < img.cols; x++) {
+        for (int z = 0; z < 3; z++) {
+          samples.at<float>(y + x * img.rows, z) = img.at<cv::Vec3b>(y, x)[z];
+        }
+      }
+    }
+
+    cv::kmeans(
+      samples, 
+      nClusters, 
+      rotulos, 
+      cv::TermCriteria(
+        cv::TermCriteria::EPS | cv::TermCriteria::COUNT, 10000, 0.0001
+      ),
+      nRodadas, 
+      cv::KMEANS_RANDOM_CENTERS, 
+      centros
+    );
+
+    cv::Mat rotulada(img.size(), img.type());
+    for (int y = 0; y < img.rows; y++) {
+      for (int x = 0; x < img.cols; x++) {
+        int indice = rotulos.at<int>(y + x * img.rows, 0);
+        rotulada.at<cv::Vec3b>(y, x)[0] = (uchar)centros.at<float>(indice, 0);
+        rotulada.at<cv::Vec3b>(y, x)[1] = (uchar)centros.at<float>(indice, 1);
+        rotulada.at<cv::Vec3b>(y, x)[2] = (uchar)centros.at<float>(indice, 2);
+      }
+    }
+    sprintf(filename, "sushi-%.d.png", n+1);
+    
+    cv::imwrite(filename, rotulada);
+
+  }
+  cv::waitKey();
+}
+~~~
+<div align="center">
+  <p>Imagem original</p>
+  <img src="https://github.com/LyndonJonhson/processamento-digital-imagens/blob/main/parte%202/4%20-%20kmeans%20(exercicio)/sushi.png"/><br><br>
+  <p>Imagem 1 com kmeans</p>
+  <img src="https://github.com/LyndonJonhson/processamento-digital-imagens/blob/main/parte%202/4%20-%20kmeans%20(exercicio)/build/sushi-1.png"/><br><br>
+  <p>Imagem 2 com kmeans</p>
+  <img src="https://github.com/LyndonJonhson/processamento-digital-imagens/blob/main/parte%202/4%20-%20kmeans%20(exercicio)/build/sushi-2.png"/><br><br>
+  <p>Imagem 3 com kmeans</p>
+  <img src="https://github.com/LyndonJonhson/processamento-digital-imagens/blob/main/parte%202/4%20-%20kmeans%20(exercicio)/build/sushi-3.png"/><br><br>
+  <p>Imagem 4 com kmeans</p>
+  <img src="https://github.com/LyndonJonhson/processamento-digital-imagens/blob/main/parte%202/4%20-%20kmeans%20(exercicio)/build/sushi-4.png"/><br><br>
+  <p>Imagem 5 com kmeans</p>
+  <img src="https://github.com/LyndonJonhson/processamento-digital-imagens/blob/main/parte%202/4%20-%20kmeans%20(exercicio)/build/sushi-5.png"/><br><br>
+  <p>Imagem 6 com kmeans</p>
+  <img src="https://github.com/LyndonJonhson/processamento-digital-imagens/blob/main/parte%202/4%20-%20kmeans%20(exercicio)/build/sushi-6.png"/><br><br>
+  <p>Imagem 7 com kmeans</p>
+  <img src="https://github.com/LyndonJonhson/processamento-digital-imagens/blob/main/parte%202/4%20-%20kmeans%20(exercicio)/build/sushi-7.png"/><br><br>
+  <p>Imagem 8 com kmeans</p>
+  <img src="https://github.com/LyndonJonhson/processamento-digital-imagens/blob/main/parte%202/4%20-%20kmeans%20(exercicio)/build/sushi-8.png"/><br><br>
+  <p>Imagem 9 com kmeans</p>
+  <img src="https://github.com/LyndonJonhson/processamento-digital-imagens/blob/main/parte%202/4%20-%20kmeans%20(exercicio)/build/sushi-9.png"/><br><br>
+  <p>Imagem 10 com kmeans</p>
+  <img src="https://github.com/LyndonJonhson/processamento-digital-imagens/blob/main/parte%202/4%20-%20kmeans%20(exercicio)/build/sushi-10.png"/><br><br>
+</div>
+Como podemos perceber a imagem gerada difere para cada inicialização de centros. O algoritmo escolhe centros que irão definir quais cores serão utilizadas para representar a imagem final. Desse modo, gerando os centros de maneira aleatória, o resultado final para cada centro é diferente, por isso a imagem varia a cada iteração.
