@@ -1136,3 +1136,195 @@ int main(int argc, char** argv) {
   <img src="https://github.com/LyndonJonhson/processamento-digital-imagens/blob/main/parte%202/4%20-%20kmeans%20(exercicio)/build/sushi-10.png"/><br><br>
 </div>
 Como podemos perceber a imagem gerada difere para cada inicialização de centros. O algoritmo escolhe centros que irão definir quais cores serão utilizadas para representar a imagem final. Desse modo, gerando os centros de maneira aleatória, o resultado final para cada centro é diferente, por isso a imagem varia a cada iteração.
+
+## 3. Terceira unidade
+
+### 3.2. Extração de características: Momentos de Hu para regiões
+
+**Atividade:** Utilizando o programa [momentos-regioes.cpp](https://github.com/LyndonJonhson/processamento-digital-imagens/blob/main/parte%203/2%20-%20Momentos%20de%20Hu%20para%20regi%C3%B5es/momentos-regioes.cpp) como referência utilize as imagens [pessoa.jpg](https://github.com/LyndonJonhson/processamento-digital-imagens/blob/main/parte%203/2%20-%20Momentos%20de%20Hu%20para%20regi%C3%B5es%20(exercicio)/pessoa.jpg) e [multidao.jpg](https://github.com/LyndonJonhson/processamento-digital-imagens/blob/main/parte%203/2%20-%20Momentos%20de%20Hu%20para%20regi%C3%B5es%20(exercicio)/multidao.jpg) e descubra em que posição a pessoa da primeira imagem se encontra na segunda imagem. Caso o programa fique lento, verifique se é possível utilizar a função cv::resize() para redimensionar as imagens e tornar o processamento mais rápido. Discuta as dificuldades encontradas na resolução do problema.
+
+- **Resposta:**
+~~~cpp
+#include <iostream>
+#include <vector>
+#include <cmath>
+#include <opencv2/opencv.hpp>
+
+using namespace std;
+using namespace cv;
+
+double compareMoments(double m1[], double m2[]) {
+	double value = 0;
+	for (int i = 0; i < 7; i++) {
+		value += abs(m1[i] - m2[i]);
+	}
+	return value;
+}
+
+int main(int argc, char* argv[]) {
+	double erro = 999;
+	double huMomentsPessoa[7];
+	double huMomentsTrecho[7];
+	int posicaoPessoa[2];
+	int size;
+	cv::Mat trechoImage;
+	cv::Moments momentsTrecho;
+
+	cv::Mat pessoa = cv::imread(argv[1], IMREAD_GRAYSCALE);
+	cv::Mat multidao = cv::imread(argv[2], IMREAD_GRAYSCALE);
+
+	// Verificar se as imagens foram carregadas corretamente
+	if (pessoa.empty() || multidao.empty()) {
+		cout << "Erro ao carregar as imagens" << endl;
+		return -1;
+	}
+
+	cv::resize(pessoa, pessoa, Size(pessoa.cols / 6, pessoa.rows / 6), INTER_LINEAR);
+	cv::resize(multidao, multidao, Size(multidao.cols / 6, multidao.rows / 6), INTER_LINEAR);
+
+	cv::Moments momentsPessoa = cv::moments(pessoa, false);
+	cv::HuMoments(momentsPessoa, huMomentsPessoa);
+
+	for (int i = 0; i < 7; i++) {
+    huMomentsPessoa[i] = -1 * std::copysign(1.0, huMomentsPessoa[i]) * log10(abs(huMomentsPessoa[i]));
+  }
+
+	size = pessoa.cols;
+
+	for (int i = 0; i < (multidao.cols - size); i++) {
+		for (int j = 0; j < (multidao.rows - size); j++) {
+			cv::Rect rect(i, j, size, size);
+			trechoImage = multidao(rect);
+			momentsTrecho = cv::moments(trechoImage, false);
+			cv::HuMoments(momentsTrecho, huMomentsTrecho);
+			for (int k = 0; k < 7; k++) {
+				huMomentsTrecho[k] = -1 * std::copysign(1.0, huMomentsTrecho[k]) * log10(abs(huMomentsTrecho[k]));
+			}
+			double result = compareMoments(huMomentsPessoa, huMomentsTrecho);
+			if (result < erro) {
+				erro = result;
+				posicaoPessoa[0] = i;
+				posicaoPessoa[1] = j;
+			}
+		}
+	}
+
+	for (int i = posicaoPessoa[0]; i < (posicaoPessoa[0] + size); i++) {
+		for (int j = posicaoPessoa[1]; j < (posicaoPessoa[1] + size); j++) {
+			if (i == posicaoPessoa[0] || i == posicaoPessoa[0] + size - 1) {
+				multidao.at<uchar>(i, j) = 0;
+			}
+			if (j == posicaoPessoa[1] || j == posicaoPessoa[1] + size - 1) {
+				multidao.at<uchar>(i, j) = 0;
+			}
+		}
+	}
+
+	std::cout << erro << " - x: " << posicaoPessoa[0] << ", y: " << posicaoPessoa[1] << std::endl;
+	cv::imwrite("image.png", multidao);
+	cv::imshow("janela", multidao);
+	cv::waitKey(0);
+
+	return 0;
+}
+~~~
+Explicando o código acima, foi realizada a leitura das imagens da pessoa.jpg e multidão.jpg e diminui a dimensção das imagens em 6 vezes para melhorar o tempo de processamento. Em seguida, encontrei o momento de Hu para a imagem da pessoa.jpg e criei um cv::Rect com o mesmo tamanho da imagem pessoa.jpg. Esse cv::Rect foi criado para percorrer a imagem multidao.jpg pegando apenas o trecho de tamanho do Rect, que é igual ao da imagem pessoa.jpg, para em seguida calcular seu momento Hu e comparar com o momento Hu da pessoa.jpg. Essa comparação é feita na função compareMoments, que retorna o valor do erro e verifico o local onde ocorreu o menor erro dos momentos e salvo no array posicaoPessoa. Em seguida demarco um quadrado em preto na imagem para localizar o Rect que teve o menor erro de momento. Porém o resultado não foi o esperado, infelizmente o Rect que está sendo encontrado não corresponde a imagem.jpg e não consegui corrigir o erro.
+
+### 3.4. Filtragem de forma com morfologia matemática
+
+**Atividade:** Um sistema de captura de imagens precisa realizar o reconhecimento de carateres de um visor de segmentos para uma aplicação industrial. Ocorre que o software de reconhecimento de padrões apresenta dificuldades de reconhecer os dígitos em virtude da separação existente entre os segmentos do visor. Usando o programa [morfologia.cpp](https://github.com/LyndonJonhson/processamento-digital-imagens/blob/main/parte%203/4%20-%20morfologia%20matem%C3%A1tica/morfologia.cpp) como referência, crie um programa que resolva o problema da pré-filtragem de forma para reconhecimento dos caracteres usando operações morfológicas. Você poderá usar as imagens [digitos-1.png](https://github.com/LyndonJonhson/processamento-digital-imagens/blob/main/parte%203/4%20-%20morfologia%20matem%C3%A1tica%20(exercicio)/digitos-1.png), [digitos-2.png](https://github.com/LyndonJonhson/processamento-digital-imagens/blob/main/parte%203/4%20-%20morfologia%20matem%C3%A1tica%20(exercicio)/digitos-2.png), [digitos-3.png](https://github.com/LyndonJonhson/processamento-digital-imagens/blob/main/parte%203/4%20-%20morfologia%20matem%C3%A1tica%20(exercicio)/digitos-3.png), [digitos-4.png](https://github.com/LyndonJonhson/processamento-digital-imagens/blob/main/parte%203/4%20-%20morfologia%20matem%C3%A1tica%20(exercicio)/digitos-4.png) e [digitos-5.png](https://github.com/LyndonJonhson/processamento-digital-imagens/blob/main/parte%203/4%20-%20morfologia%20matem%C3%A1tica%20(exercicio)/digitos-5.png) para testar seu programa. Cuidado para deixar o ponto decimal separado dos demais dígitos para evitar um reconhecimento errado do número no visor.
+
+- **Resposta:**
+~~~cpp
+#include <iostream>
+#include <opencv2/opencv.hpp>
+
+int main(int argc, char** argv) {
+  cv::Mat digitos1, dilatacao1, erosao1;
+  cv::Mat digitos2, dilatacao2, erosao2;
+  cv::Mat digitos3, dilatacao3, erosao3;
+  cv::Mat digitos4, dilatacao4, erosao4;
+  cv::Mat digitos5, dilatacao5, erosao5;
+  cv::Mat str, image;
+
+  digitos1 = cv::imread("../digitos-1.png", cv::IMREAD_UNCHANGED);
+  digitos2 = cv::imread("../digitos-2.png", cv::IMREAD_UNCHANGED);
+  digitos3 = cv::imread("../digitos-3.png", cv::IMREAD_UNCHANGED);
+  digitos4 = cv::imread("../digitos-4.png", cv::IMREAD_UNCHANGED);
+  digitos5 = cv::imread("../digitos-5.png", cv::IMREAD_UNCHANGED);
+
+  if(digitos1.empty() || digitos2.empty() || 
+    digitos3.empty() || digitos4.empty() || 
+    digitos4.empty()) {
+    std::cout << "Erro ao carregar as imagens" << std::endl;
+    return -1;
+  }
+
+  cv::bitwise_not(digitos1, digitos1);
+  cv::bitwise_not(digitos2, digitos2);
+  cv::bitwise_not(digitos3, digitos3);
+  cv::bitwise_not(digitos4, digitos4);
+  cv::bitwise_not(digitos5, digitos5);
+
+  // elemento estruturante
+  str = cv::getStructuringElement(cv::MORPH_RECT, cv::Size(3, 15));
+
+  cv::dilate(digitos1, dilatacao1, str);
+  cv::erode(dilatacao1, erosao1, str);
+
+  cv::dilate(digitos2, dilatacao2, str);
+  cv::erode(dilatacao2, erosao2, str);
+
+  cv::dilate(digitos3, dilatacao3, str);
+  cv::erode(dilatacao3, erosao3, str);
+
+  cv::dilate(digitos4, dilatacao4, str);
+  cv::erode(dilatacao4, erosao4, str);
+
+  cv::dilate(digitos5, dilatacao5, str);
+  cv::erode(dilatacao5, erosao5, str);
+
+  cv::bitwise_not(erosao1, erosao1);
+  cv::bitwise_not(erosao2, erosao2);
+  cv::bitwise_not(erosao3, erosao3);
+  cv::bitwise_not(erosao4, erosao4);
+  cv::bitwise_not(erosao5, erosao5);
+
+  cv::imwrite("morfologia1.png", erosao1);
+  cv::imwrite("morfologia2.png", erosao2);
+  cv::imwrite("morfologia3.png", erosao3);
+  cv::imwrite("morfologia4.png", erosao4);
+  cv::imwrite("morfologia5.png", erosao5);
+
+  cv::waitKey();
+  return 0;
+}
+~~~
+<div align="center">
+  <p>Digitos-1.png</p>
+  <img src="https://github.com/LyndonJonhson/processamento-digital-imagens/blob/main/parte%203/4%20-%20morfologia%20matem%C3%A1tica%20(exercicio)/digitos-1.png" />
+  <p>Resultado Digitos-1.png</p>
+  <img src="https://github.com/LyndonJonhson/processamento-digital-imagens/blob/main/parte%203/4%20-%20morfologia%20matem%C3%A1tica%20(exercicio)/build/morfologia1.png" />
+  <br><br>
+  <p>Digitos-2.png</p>
+  <img src="https://github.com/LyndonJonhson/processamento-digital-imagens/blob/main/parte%203/4%20-%20morfologia%20matem%C3%A1tica%20(exercicio)/digitos-2.png" />
+  <p>Resultado Digitos-2.png</p>
+  <img src="https://github.com/LyndonJonhson/processamento-digital-imagens/blob/main/parte%203/4%20-%20morfologia%20matem%C3%A1tica%20(exercicio)/build/morfologia2.png" />
+  <br><br>
+  <p>Digitos-3.png</p>
+  <img src="https://github.com/LyndonJonhson/processamento-digital-imagens/blob/main/parte%203/4%20-%20morfologia%20matem%C3%A1tica%20(exercicio)/digitos-3.png" />
+  <p>Resultado Digitos-3.png</p>
+  <img src="https://github.com/LyndonJonhson/processamento-digital-imagens/blob/main/parte%203/4%20-%20morfologia%20matem%C3%A1tica%20(exercicio)/build/morfologia3.png" />
+  <br><br>
+  <p>Digitos-4.png</p>
+  <img src="https://github.com/LyndonJonhson/processamento-digital-imagens/blob/main/parte%203/4%20-%20morfologia%20matem%C3%A1tica%20(exercicio)/digitos-4.png" />
+  <p>Resultado Digitos-4.png</p>
+  <img src="https://github.com/LyndonJonhson/processamento-digital-imagens/blob/main/parte%203/4%20-%20morfologia%20matem%C3%A1tica%20(exercicio)/build/morfologia4.png" />
+  <br><br>
+  <p>Digitos-5.png</p>
+  <img src="https://github.com/LyndonJonhson/processamento-digital-imagens/blob/main/parte%203/4%20-%20morfologia%20matem%C3%A1tica%20(exercicio)/digitos-5.png" />
+  <p>Resultado Digitos-5.png</p>
+  <img src="https://github.com/LyndonJonhson/processamento-digital-imagens/blob/main/parte%203/4%20-%20morfologia%20matem%C3%A1tica%20(exercicio)/build/morfologia5.png" />
+</div><br><br>
+
+Explicando o código, eu faço a leitura das 5 imagens dos números em formato de display. As imagens são binárias e os números são pretos com o fundo branco, só que a morfologia no opencv funciona em elementos da cor branca e com isso eu faço a inversão para que os números fiquem brancos e o fundo preto para aplicar a morfologia. Após a troca das cores, crio o elemento estruturante de um retângulo com uma altura considerável para que consiga unir os espaços nos números do display. Em seguida é aplicado a dilatação para conectar os elementos dos números que estão separados e logo após a erosão para fazer o elemento voltar ao seu tamanho normal, só que agora todo conectado. Por fim, volto a cor dos números para preto e o fundo para branco.
